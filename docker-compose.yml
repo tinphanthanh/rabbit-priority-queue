@@ -1,0 +1,22 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # Management UI: guest / guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672
+      PROCESS_MS: 5000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

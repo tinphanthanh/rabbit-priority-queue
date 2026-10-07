@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Priority Queue</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  form { display: flex; gap: 8px; margin-bottom: 16px; }
+  input[type=text] { flex: 1; padding: 8px; }
+  select, button, input { padding: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+  .queued { color: #b45309; } .processing { color: #2563eb; font-weight: 600; } .done { color: #16a34a; }
+</style>
+</head>
+<body>
+<h2>RabbitMQ Priority Queue</h2>
+<form id="f">
+  <input type="text" id="name" placeholder="Tên item" required>
+  <select id="prio"></select>
+  <button>Thêm</button>
+</form>
+<table>
+  <thead><tr><th>Item</th><th>Priority</th><th>Trạng thái</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script>
+const opts = Array.from({ length: 11 }, (_, i) => `<option value="${i}">${i}</option>`).join('');
+document.getElementById('prio').innerHTML = opts;
+
+document.getElementById('f').onsubmit = async (e) => {
+  e.preventDefault();
+  await fetch('/api/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.value, priority: +prio.value }),
+  });
+  name.value = '';
+  load();
+};
+
+async function setPrio(id, p) {
+  const r = await fetch('/api/items/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ priority: +p }),
+  });
+  if (!r.ok) alert((await r.json()).error);
+  load();
+}
+
+async function load() {
+  if (document.activeElement && document.activeElement.tagName === 'SELECT') return;
+  const items = await (await fetch('/api/items')).json();
+  const order = { processing: 0, queued: 1, done: 2 };
+  items.sort((a, b) => order[a.status] - order[b.status] || b.priority - a.priority);
+  rows.innerHTML = items.map((i) => `
+    <tr>
+      <td>${i.name.replace(/</g, '&lt;')}</td>
+      <td>${i.status === 'queued'
+        ? `<select onchange="setPrio('${i.id}', this.value)">${opts.replace(`value="${i.priority}"`, `value="${i.priority}" selected`)}</select>`
+        : i.priority}</td>
+      <td class="${i.status}">${i.status}</td>
+    </tr>`).join('');
+}
+setInterval(load, 1000);
+load();
+</script>
+</body>
+</html>
